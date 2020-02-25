@@ -6,9 +6,7 @@
        to you under the Apache License, Version 2.0 (the
        "License"); you may not use this file except in compliance
        with the License.  You may obtain a copy of the License at
-
          http://www.apache.org/licenses/LICENSE-2.0
-
        Unless required by applicable law or agreed to in writing,
        software distributed under the License is distributed on an
        "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -20,23 +18,28 @@ package org.apache.cordova.inappbrowser;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Environment;
 import android.os.Parcelable;
 import android.provider.Browser;
+import android.provider.MediaStore;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Color;
+import android.Manifest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -76,25 +79,19 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.HashMap;
 import java.util.StringTokenizer;
-
-import android.app.Activity;
-import android.Manifest;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.util.Log;
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
@@ -325,9 +322,7 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    if (dialog != null) {
-                        dialog.show();
-                    }
+                    dialog.show();
                 }
             });
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
@@ -338,9 +333,7 @@ public class InAppBrowser extends CordovaPlugin {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    if (dialog != null) {
-                        dialog.hide();
-                    }
+                    dialog.hide();
                 }
             });
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
@@ -453,7 +446,7 @@ public class InAppBrowser extends CordovaPlugin {
                 if (option.hasMoreElements()) {
                     String key = option.nextToken();
                     String value = option.nextToken();
-                    if (!customizableOptions.contains(key)) {
+                    if (!customizableOptions.contains(key)){
                         value = value.equals("yes") || value.equals("no") ? value : "yes";
                     }
                     map.put(key, value);
@@ -632,7 +625,7 @@ public class InAppBrowser extends CordovaPlugin {
         return this.showLocationBar;
     }
 
-    private InAppBrowser getInAppBrowser() {
+    private InAppBrowser getInAppBrowser(){
         return this;
     }
 
@@ -746,7 +739,7 @@ public class InAppBrowser extends CordovaPlugin {
                 return value;
             }
 
-            private View createCloseButton(int id) {
+            private View createCloseButton(int id){
                 View _close;
                 Resources activityRes = cordova.getActivity().getResources();
 
@@ -922,9 +915,9 @@ public class InAppBrowser extends CordovaPlugin {
                 // Footer
                 RelativeLayout footer = new RelativeLayout(cordova.getActivity());
                 int _footerColor;
-                if(footerColor != "") {
+                if(footerColor != ""){
                     _footerColor = Color.parseColor(footerColor);
-                } else {
+                }else{
                     _footerColor = android.graphics.Color.LTGRAY;
                 }
                 footer.setBackgroundColor(_footerColor);
@@ -989,9 +982,19 @@ public class InAppBrowser extends CordovaPlugin {
                             intentArray = new Intent[0];
                         }
 
+                        Locale localeInfo = cordova.getActivity().getApplicationContext().getResources()
+                             .getConfiguration().getLocales().get(0);
+
+                        String lang = localeInfo.toLanguageTag();
+
+                        String title = "Choose the Source";
+                        if(lang.startsWith("es")) {
+                            title = "Seleccione el origen";
+                        }
+
                         Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
                         chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-                        chooserIntent.putExtra(Intent.EXTRA_TITLE, "Selecione a imagem");
+                        chooserIntent.putExtra(Intent.EXTRA_TITLE, title);
                         chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
 
                         // Run cordova startActivityForResult
@@ -1020,16 +1023,9 @@ public class InAppBrowser extends CordovaPlugin {
                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE);
                     }
 
-                    private File createImageFile() throws IOException{
-                        @SuppressLint("SimpleDateFormat") String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                        String imageFileName = "img_"+timeStamp+"_";
-                        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-                        return File.createTempFile(imageFileName,".jpg",storageDir);
-                    }
-
                 });
-                currentClient = new InAppBrowserClient(thatWebView, edittext, beforeload);
-                inAppWebView.setWebViewClient(currentClient);
+                WebViewClient client = new InAppBrowserClient(thatWebView, edittext, beforeload);
+                inAppWebView.setWebViewClient(client);
                 WebSettings settings = inAppWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
                 settings.setJavaScriptCanOpenWindowsAutomatically(true);
@@ -1123,14 +1119,12 @@ public class InAppBrowser extends CordovaPlugin {
                 lp.width = WindowManager.LayoutParams.MATCH_PARENT;
                 lp.height = WindowManager.LayoutParams.MATCH_PARENT;
 
-                if (dialog != null) {
-                    dialog.setContentView(main);
-                    dialog.show();
-                    dialog.getWindow().setAttributes(lp);
-                }
+                dialog.setContentView(main);
+                dialog.show();
+                dialog.getWindow().setAttributes(lp);
                 // the goal of openhidden is to load the url and not display it
                 // Show() needs to be called to cause the URL to be loaded
-                if (openWindowHidden && dialog != null) {
+                if(openWindowHidden) {
                     dialog.hide();
                 }
             }
@@ -1139,6 +1133,13 @@ public class InAppBrowser extends CordovaPlugin {
         return "";
     }
 
+
+    private File createImageFile() throws IOException{
+        @SuppressLint("SimpleDateFormat") String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "img_"+timeStamp+"_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        return File.createTempFile(imageFileName,".jpg",storageDir);
+    }
     /**
      * Create a new plugin success result and send it back to JavaScript
      *
@@ -1175,9 +1176,7 @@ public class InAppBrowser extends CordovaPlugin {
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
         // For Android >= 5.0
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-
             LOG.d(LOG_TAG, "onActivityResult (For Android >= 5.0)");
-
             Uri[] results = null;
             //Check if response is positive
             if(resultCode== Activity.RESULT_OK){
@@ -1285,26 +1284,26 @@ public class InAppBrowser extends CordovaPlugin {
 
             if (beforeload.equals("yes") && method == null) {
                 useBeforeload = true;
-            } else if(beforeload.equals("yes")
+            }else if(beforeload.equals("yes")
                     //TODO handle POST requests then this condition can be removed:
                     && !method.equals("POST"))
             {
                 useBeforeload = true;
-            } else if(beforeload.equals("get") && (method == null || method.equals("GET"))) {
+            }else if(beforeload.equals("get") && (method == null || method.equals("GET"))){
                 useBeforeload = true;
-            } else if(beforeload.equals("post") && (method == null || method.equals("POST"))) {
+            }else if(beforeload.equals("post") && (method == null || method.equals("POST"))){
                 //TODO handle POST requests
                 errorMessage = "beforeload doesn't yet support POST requests";
             }
 
             // On first URL change, initiate JS callback. Only after the beforeload event, continue.
             if (useBeforeload && this.waitForBeforeload) {
-                if(sendBeforeLoad(url, method)) {
+                if(sendBeforeLoad(url, method)){
                     return true;
                 }
             }
 
-            if(errorMessage != null) {
+            if(errorMessage != null){
                 try {
                     LOG.e(LOG_TAG, errorMessage);
                     JSONObject obj = new JSONObject();
@@ -1313,7 +1312,7 @@ public class InAppBrowser extends CordovaPlugin {
                     obj.put("code", -1);
                     obj.put("message", errorMessage);
                     sendUpdate(obj, true, PluginResult.Status.ERROR);
-                } catch(Exception e) {
+                }catch(Exception e){
                     LOG.e(LOG_TAG, "Error sending loaderror for " + url + ": " + e.toString());
                 }
             }
@@ -1399,12 +1398,12 @@ public class InAppBrowser extends CordovaPlugin {
             return override;
         }
 
-        private boolean sendBeforeLoad(String url, String method) {
+        private boolean sendBeforeLoad(String url, String method){
             try {
                 JSONObject obj = new JSONObject();
-                obj.put("type", BEFORELOAD);
+                obj.put("type", "beforeload");
                 obj.put("url", url);
-                if(method != null) {
+                if(method != null){
                     obj.put("method", method);
                 }
                 sendUpdate(obj, true);
@@ -1442,7 +1441,7 @@ public class InAppBrowser extends CordovaPlugin {
             return shouldInterceptRequest(request.getUrl().toString(), super.shouldInterceptRequest(view, request), request.getMethod());
         }
 
-        public WebResourceResponse shouldInterceptRequest(String url, WebResourceResponse response, String method) {
+        public WebResourceResponse shouldInterceptRequest(String url, WebResourceResponse response, String method){
             return response;
         }
 
@@ -1483,11 +1482,13 @@ public class InAppBrowser extends CordovaPlugin {
             }
         }
 
+
+
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
 
             // Set the namespace for postMessage()
-            if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1){
                 injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
             }
 
