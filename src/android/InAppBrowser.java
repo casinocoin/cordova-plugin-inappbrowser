@@ -33,6 +33,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Color;
+import android.Manifest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -82,6 +83,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
@@ -936,6 +938,10 @@ public class InAppBrowser extends CordovaPlugin {
                     // For Android 5.0+
                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
                     {
+                        if(Build.VERSION.SDK_INT >=23 && (cordova.getActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED || cordova.getActivity().checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)) {
+                            cordova.getActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 1);
+                        }
+
                         LOG.d(LOG_TAG, "File Chooser 5.0+");
                         // If callback exists, finish it.
                         if(mUploadCallbackLollipop != null) {
@@ -943,10 +949,18 @@ public class InAppBrowser extends CordovaPlugin {
                         }
                         mUploadCallbackLollipop = filePathCallback;
 
+                        Locale localeInfo = cordova.getActivity().getApplicationContext().getResources().getConfiguration().getLocales().get(0);
+                        String lang = localeInfo.toLanguageTag();
+
+                        String title = "Choose the Source";
+                        if(lang.startsWith("es")) {
+                            title = "Seleccione el origen";
+                        }
                         // Create File Chooser Intent
                         Intent content = new Intent(Intent.ACTION_GET_CONTENT);
                         content.addCategory(Intent.CATEGORY_OPENABLE);
                         content.setType("*/*");
+                        content.putExtra(Intent.EXTRA_TITLE, title);
 
                         // Run cordova startActivityForResult
                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE_LOLLIPOP);
