@@ -33,7 +33,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Color;
-import android.Manifest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -86,6 +85,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.HashMap;
 import java.util.StringTokenizer;
+
+import android.app.Activity;
+import android.Manifest;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
@@ -151,6 +160,7 @@ public class InAppBrowser extends CordovaPlugin {
     private String beforeload = "";
     private String[] allowedSchemes;
     private InAppBrowserClient currentClient;
+    private String mCM;
 
     /**
      * Executes the request and returns PluginResult.
@@ -943,27 +953,50 @@ public class InAppBrowser extends CordovaPlugin {
                         }
 
                         LOG.d(LOG_TAG, "File Chooser 5.0+");
+
                         // If callback exists, finish it.
                         if(mUploadCallbackLollipop != null) {
                             mUploadCallbackLollipop.onReceiveValue(null);
                         }
                         mUploadCallbackLollipop = filePathCallback;
 
-                        Locale localeInfo = cordova.getActivity().getApplicationContext().getResources().getConfiguration().getLocales().get(0);
-                        String lang = localeInfo.toLanguageTag();
+                        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
-                        String title = "Choose the Source";
-                        if(lang.startsWith("es")) {
-                            title = "Seleccione el origen";
+                        if(takePictureIntent.resolveActivity(cordova.getActivity().getPackageManager()) != null) {
+
+                            File photoFile = null;
+                            try{
+                                photoFile = createImageFile();
+                                takePictureIntent.putExtra("PhotoPath", mCM);
+                            }catch(IOException ex){
+                                Log.e(LOG_TAG, "Image file creation failed", ex);
+                            }
+                            if(photoFile != null){
+                                mCM = "file:" + photoFile.getAbsolutePath();
+                                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photoFile));
+                            }else{
+                                takePictureIntent = null;
+                            }
                         }
                         // Create File Chooser Intent
-                        Intent content = new Intent(Intent.ACTION_GET_CONTENT);
-                        content.addCategory(Intent.CATEGORY_OPENABLE);
-                        content.setType("*/*");
-                        content.putExtra(Intent.EXTRA_TITLE, title);
+                        Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                        contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                        contentSelectionIntent.setType("*/*");
+                        Intent[] intentArray;
+                        if(takePictureIntent != null){
+                            intentArray = new Intent[]{takePictureIntent};
+                        }else{
+                            intentArray = new Intent[0];
+                        }
+
+                        Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
+                        chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
+                        chooserIntent.putExtra(Intent.EXTRA_TITLE, "Selecione a imagem");
+                        chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
 
                         // Run cordova startActivityForResult
-                        cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE_LOLLIPOP);
+                        cordova.startActivityForResult(InAppBrowser.this, chooserIntent, FILECHOOSER_REQUESTCODE);
+
                         return true;
                     }
 
@@ -985,6 +1018,13 @@ public class InAppBrowser extends CordovaPlugin {
 
                         // run startActivityForResult
                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE);
+                    }
+
+                    private File createImageFile() throws IOException{
+                        @SuppressLint("SimpleDateFormat") String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                        String imageFileName = "img_"+timeStamp+"_";
+                        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+                        return File.createTempFile(imageFileName,".jpg",storageDir);
                     }
 
                 });
@@ -1135,13 +1175,30 @@ public class InAppBrowser extends CordovaPlugin {
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
         // For Android >= 5.0
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+
             LOG.d(LOG_TAG, "onActivityResult (For Android >= 5.0)");
-            // If RequestCode or Callback is Invalid
-            if(requestCode != FILECHOOSER_REQUESTCODE_LOLLIPOP || mUploadCallbackLollipop == null) {
-                super.onActivityResult(requestCode, resultCode, intent);
-                return;
+
+            Uri[] results = null;
+            //Check if response is positive
+            if(resultCode== Activity.RESULT_OK){
+                if(requestCode == FILECHOOSER_REQUESTCODE){
+                    if(null == mUploadCallbackLollipop){
+                        return;
+                    }
+                    if(intent == null || intent.getData() == null){
+                        //Capture Photo if no image available
+                        if(mCM != null){
+                            results = new Uri[]{Uri.parse(mCM)};
+                        }
+                    }else{
+                        String dataString = intent.getDataString();
+                        if(dataString != null){
+                            results = new Uri[]{Uri.parse(dataString)};
+                        }
+                    }
+                }
             }
-            mUploadCallbackLollipop.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent));
+            mUploadCallbackLollipop .onReceiveValue(results);
             mUploadCallbackLollipop = null;
         }
         // For Android < 5.0
